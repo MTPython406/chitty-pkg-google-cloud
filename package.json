@@ -1,0 +1,172 @@
+{
+  "name": "google-cloud",
+  "display_name": "Google Cloud Platform",
+  "vendor": "Chitty",
+  "description": "BigQuery analytics, Cloud Storage management, and data pipelines using Google Cloud",
+  "version": "1.1.0",
+  "icon": "cloud",
+  "color": "#4285F4",
+  "status": "not_installed",
+
+  "long_description": "Full Google Cloud Platform integration for Chitty Workspace. Query and manage BigQuery datasets, upload and organize files in Cloud Storage, and build data pipelines — all through natural language.\n\n**BigQuery** — Run SQL queries, explore schemas, create datasets and tables, insert data.\n\n**Cloud Storage** — Upload, download, list, and manage files in GCS buckets. Perfect for staging data for BigQuery or sharing results.\n\nAuthentication uses your existing `gcloud` CLI credentials. No passwords or service account keys are stored by Chitty.\n\n**Security** — All mutating operations (write, delete, create) are disabled by default. Enable only the features you need via Feature Flags. Identifiers and paths are validated. Local file transfers are gated and sandboxed to workspace/temp directories.",
+
+  "categories": ["cloud", "data", "analytics"],
+  "docs_url": "https://cloud.google.com/docs",
+  "repo_url": "https://github.com/nicholasgitwork/chitty-workspace",
+
+  "tools": [
+    "bigquery",
+    "cloud-storage"
+  ],
+
+  "auth": {
+    "type": "cli",
+    "instructions": "This package uses your Google Cloud CLI (gcloud) credentials. You'll be prompted to sign in via your browser during setup.",
+    "oauth_provider": "google",
+    "oauth_scopes": [
+      "https://www.googleapis.com/auth/bigquery",
+      "https://www.googleapis.com/auth/devstorage.read_write"
+    ]
+  },
+
+  "setup_steps": [
+    {
+      "id": "check_gcloud",
+      "label": "Check for Google Cloud CLI",
+      "check_command": "gcloud --version",
+      "install_command_windows": "winget install Google.CloudSDK --accept-package-agreements --accept-source-agreements",
+      "install_command_mac": "brew install --cask google-cloud-sdk",
+      "install_command_linux": "curl https://sdk.cloud.google.com | bash",
+      "help_url": "https://cloud.google.com/sdk/docs/install",
+      "help_text": "Google Cloud CLI is required. It will be installed automatically.",
+      "required": true
+    },
+    {
+      "id": "auth_login",
+      "label": "Sign in to Google Cloud",
+      "check_command": "gcloud auth print-access-token",
+      "install_command": "gcloud auth login --no-launch-browser-for-auth-code",
+      "help_text": "Opens your browser to sign in with your Google account. No passwords are stored by Chitty.",
+      "required": true
+    },
+    {
+      "id": "set_project",
+      "label": "Set default project",
+      "check_command": "gcloud config get-value project",
+      "prompt_user": true,
+      "prompt_label": "Google Cloud Project ID",
+      "prompt_placeholder": "e.g. my-project-12345",
+      "prompt_help": "Enter your GCP project ID. Find it at console.cloud.google.com",
+      "install_command_template": "gcloud config set project {value}",
+      "required": true
+    },
+    {
+      "id": "install_python_deps",
+      "label": "Install Python dependencies",
+      "check_command": "pip show chitty-sdk",
+      "install_command": "pip install chitty-sdk",
+      "help_text": "Chitty SDK provides authentication helpers and tool utilities for marketplace packages.",
+      "required": true
+    }
+  ],
+
+  "configurable_resources": [
+    {
+      "id": "datasets",
+      "label": "BigQuery Datasets",
+      "description": "Select which BigQuery datasets the agent can access. The agent will only query, insert, or manage tables within these datasets.",
+      "discover_command": "gcloud bq ls --format=json",
+      "placeholder": "e.g. my_analytics_dataset",
+      "multi": true,
+      "required_by_actions": ["query", "list_tables", "describe_table", "insert_rows"]
+    },
+    {
+      "id": "buckets",
+      "label": "Cloud Storage Buckets",
+      "description": "Select which GCS buckets the agent can read from and write to.",
+      "discover_command": "gsutil ls",
+      "placeholder": "e.g. my-data-bucket",
+      "multi": true,
+      "required_by_actions": ["list_objects", "upload_object", "download_object", "delete_object"]
+    }
+  ],
+
+  "feature_flags": [
+    {
+      "id": "allow_create_dataset",
+      "label": "Allow creating new datasets",
+      "description": "When enabled, the agent can create new BigQuery datasets in your project.",
+      "default_enabled": false,
+      "gates_actions": ["create_dataset"],
+      "enable_warning": "Creating datasets may incur storage costs."
+    },
+    {
+      "id": "allow_delete_dataset",
+      "label": "Allow deleting datasets",
+      "description": "When enabled, the agent can delete BigQuery datasets and all their contents.",
+      "default_enabled": false,
+      "gates_actions": ["delete_dataset"],
+      "enable_warning": "Deleting a dataset permanently removes all tables and data. This cannot be undone."
+    },
+    {
+      "id": "allow_mutating_queries",
+      "label": "Allow mutating SQL queries",
+      "description": "When enabled, the agent can run INSERT, UPDATE, DELETE, DROP, CREATE, ALTER, and TRUNCATE SQL statements. When disabled, only SELECT queries are allowed.",
+      "default_enabled": false,
+      "gates_actions": ["query_mutate", "insert_rows"],
+      "enable_warning": "Mutating queries can modify or delete data in your BigQuery datasets. Use with caution."
+    },
+    {
+      "id": "allow_create_bucket",
+      "label": "Allow creating new buckets",
+      "description": "When enabled, the agent can create new Cloud Storage buckets.",
+      "default_enabled": false,
+      "gates_actions": ["create_bucket"],
+      "enable_warning": "Creating buckets may incur storage costs."
+    },
+    {
+      "id": "allow_delete_objects",
+      "label": "Allow deleting objects",
+      "description": "When enabled, the agent can delete files from Cloud Storage buckets.",
+      "default_enabled": false,
+      "gates_actions": ["delete_object"],
+      "enable_warning": "Deleted objects cannot be recovered unless versioning is enabled on the bucket."
+    },
+    {
+      "id": "allow_local_file_upload",
+      "label": "Allow local file uploads to GCS",
+      "description": "When enabled, the agent can read files from your local filesystem and upload them to Cloud Storage. Files are restricted to workspace and temp directories.",
+      "default_enabled": false,
+      "gates_actions": ["upload_object"],
+      "enable_warning": "This allows the agent to read local files (within the workspace) and upload them to GCS."
+    },
+    {
+      "id": "allow_local_file_download",
+      "label": "Allow GCS downloads to local filesystem",
+      "description": "When enabled, the agent can download files from Cloud Storage and save them to your local filesystem. Files are restricted to workspace and temp directories.",
+      "default_enabled": false,
+      "gates_actions": ["download_object"],
+      "enable_warning": "This allows the agent to write files to your local filesystem (within the workspace)."
+    }
+  ],
+
+  "agent_config": {
+    "default_instructions": "You have access to Google Cloud Platform tools. Always check the user's allowed datasets and buckets before performing operations. Prefer read-only operations (SELECT queries, list, describe) unless the user explicitly asks to modify data. Always confirm before running mutating queries, creating resources, or deleting anything. When querying BigQuery, add LIMIT clauses to avoid scanning excessive data.",
+    "suggested_prompts": [
+      "List my BigQuery datasets and show me the tables",
+      "Run a SQL query on my dataset to find the top 10 rows",
+      "Upload this CSV file to my Cloud Storage bucket",
+      "Show me what's in my GCS bucket"
+    ],
+    "recommended_model": "gpt-4o",
+    "capabilities": [
+      "Run read-only SQL queries on BigQuery datasets",
+      "Explore table schemas and row counts",
+      "List bucket contents and object metadata",
+      "Upload inline text content to Cloud Storage",
+      "Upload/download local files (when enabled via feature flags)",
+      "Run mutating SQL queries (when enabled via feature flags)",
+      "Create and manage datasets and buckets (when enabled via feature flags)"
+    ]
+  }
+}
